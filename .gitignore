@@ -4,12 +4,51 @@
 *.pyd
 __pycache__/
 
-# Distribution / Packaging
+# Virtual environments (incl. .venv)
 venv/
+.venv/
+env/
+.env/
+ENV/
+venv.bak/
 
-# Unit Test
+# Distribution / Packaging
+build/
+dist/
+*.egg-info/
+*.egg
+.eggs/
+
+# Unit Test / Cache
 .pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.coverage.*
+.cache
 
 # Ignore IDE, Editor Files
 .idea/
 .vscode/
+
+# CUDA / NVIDIA runtime DLLs (heavy, re-generable via pip)
+Lib/site-packages/nvidia/
+
+# Whisper model downloads (large)
+models/
+*.bin
+*.safetensors
+
+# Generated subtitle files (heavy)
+subtitles/
+*.srt
+
+# Benchmark output
+benchmark/output/
+buffer/
+output/
+
+# macOS / Windows
+.DS_Store
+Thumbs.db

@@ -2,6 +2,8 @@
 
 # Faster Whisper transcription with CTranslate2
 
+> Para instalar y ejecutar la interfaz de subtítulos incluida en este proyecto en Windows o Linux, consulta la [guía de instalación en español](INSTALACION.md).
+
 **faster-whisper** is a reimplementation of OpenAI's Whisper model using [CTranslate2](https://github.com/OpenNMT/CTranslate2/), which is a fast inference engine for Transformer models.
 
 This implementation is up to 4 times faster than [openai/whisper](https://github.com/openai/whisper) for the same accuracy while using less memory. The efficiency can be further improved with 8-bit quantization on both CPU and GPU.

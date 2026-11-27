@@ -7,8 +7,9 @@ __pycache__/
 # Virtual environments (incl. .venv)
 venv/
 .venv/
+.venv-linux/
 env/
-.env/
+.env
 ENV/
 venv.bak/
 
@@ -41,8 +42,13 @@ models/
 *.safetensors
 
 # Generated subtitle files (heavy)
+ui_uploads/
 subtitles/
 *.srt
+exports/*
+!exports/.gitkeep
+tools/__pycache__/
+:memory:.ses
 
 # Benchmark output
 benchmark/output/
@@ -52,3 +58,6 @@ output/
 # macOS / Windows
 .DS_Store
 Thumbs.db
+
+# Environment variables
+.env

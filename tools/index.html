@@ -1,0 +1,2178 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Subtítulos — faster-whisper</title>
+  <style>
+    @import url("https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Oswald:wght@400;600&family=Outfit:wght@300;400;500;600&family=Quicksand:wght@400;600&display=swap");
+
+    @font-face {
+      font-family: "Payday";
+      src: url("/fonts/Payday.ttf") format("truetype");
+      font-weight: 400 700;
+      font-display: swap;
+    }
+
+    :root {
+      --bg: #06080b;
+      --panel: #0a0d12;
+      --panel-2: #0e1118;
+      --line: #181d28;
+      --line-2: #1c2234;
+      --ink: #e2e6ee;
+      --soft: #8490a8;
+      --muted: #4a546a;
+      --accent: #b8f060;
+      --accent-2: #8fd64a;
+      --red: #f05858;
+      --green: #44d490;
+    }
+
+    * { box-sizing: border-box; }
+    * { scrollbar-width: thin; scrollbar-color: var(--accent) transparent; }
+    *::-webkit-scrollbar { width: 8px; height: 8px; }
+    *::-webkit-scrollbar-track { background: transparent; }
+    *::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 999px; }
+
+    [hidden] { display: none !important; }
+
+    html, body {
+      margin: 0;
+      min-height: 100%;
+      color: var(--ink);
+      font-family: "Outfit", "Segoe UI", sans-serif;
+    }
+    body {
+      background: var(--bg);
+      color-scheme: dark;
+    }
+    h1, h2, h3 {
+      font-family: "Instrument Serif", serif;
+      letter-spacing: -0.01em;
+      margin: 0;
+      font-weight: 400;
+    }
+    p { margin: 0; line-height: 1.5; color: var(--soft); }
+    button, input, select, textarea { font: inherit; }
+
+    .app {
+      min-height: 100vh;
+      padding: 1.5rem;
+      display: grid;
+      place-items: center;
+      position: relative;
+    }
+
+    /* ── Status dock ── */
+    .status-dock {
+      position: fixed;
+      top: 1rem;
+      right: 1rem;
+      z-index: 40;
+      display: flex;
+      align-items: center;
+      gap: 0.55rem;
+    }
+    .status-label {
+      font-size: 0.74rem;
+      font-weight: 500;
+      letter-spacing: -0.01em;
+      color: #8490a8;
+      background: radial-gradient(circle at 30% 25%, #161b26, #0a0d12);
+      padding: 0.32rem 0.6rem;
+      border-radius: 999px;
+      white-space: nowrap;
+      box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35), inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+    }
+    .status-label[data-state="busy"] { color: var(--accent); }
+    .status-label[data-state="ready"] { color: var(--green); }
+    .status-label[data-state="error"] { color: var(--red); }
+
+    /* ── Upload stage ── */
+    .stage-upload {
+      width: min(560px, 100%);
+      min-height: calc(100vh - 3rem);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 2.5rem;
+      padding: 1.5rem 0;
+      position: relative;
+      isolation: isolate;
+    }
+    .stage-aurora {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+      overflow: hidden;
+    }
+    .stage-aurora::before {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: 42%;
+      width: 130%;
+      height: 130%;
+      transform: translate(-50%, -50%);
+      background:
+        radial-gradient(32% 38% at 68% 34%, rgba(184, 240, 96, 0.13), transparent 70%),
+        radial-gradient(34% 40% at 30% 60%, rgba(96, 150, 250, 0.1), transparent 70%);
+      filter: blur(36px);
+      animation: aurora-drift 18s ease-in-out infinite alternate;
+    }
+
+    .hero {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      gap: 1.1rem;
+    }
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.74rem;
+      font-weight: 500;
+      letter-spacing: 0.01em;
+      color: #9aa6bf;
+      padding: 0.3rem 0.75rem 0.3rem 0.6rem;
+      border: 1px solid rgba(184, 240, 96, 0.18);
+      border-radius: 999px;
+      background: rgba(184, 240, 96, 0.05);
+    }
+    .hero-badge-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 8px rgba(184, 240, 96, 0.7);
+      animation: badge-pulse 2.4s ease-out infinite;
+    }
+    .hero h1 {
+      font-size: clamp(2.6rem, 7vw, 4.4rem);
+      line-height: 1.02;
+      letter-spacing: -0.02em;
+      color: #eef1f6;
+    }
+    .hero-mark {
+      position: relative;
+      font-style: italic;
+      white-space: nowrap;
+      padding: 0.04em 0.06em 0.16em;
+    }
+    .hero-mark-text {
+      background: linear-gradient(100deg, #f4f7fc 0%, #f4f7fc 26%, #d6f59a 44%, #b8f060 54%, #f4f7fc 74%);
+      background-size: 240% 100%;
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      color: transparent;
+      animation: mark-shimmer 7s linear infinite;
+    }
+    .hero-sub {
+      font-size: 0.95rem;
+      line-height: 1.6;
+      color: #8893ab;
+      max-width: 42ch;
+      margin: 0;
+    }
+
+    .dropzone {
+      position: relative;
+      isolation: isolate;
+      z-index: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px dashed #1c2234;
+      border-radius: 16px;
+      background: #0a0d12;
+      cursor: pointer;
+      padding: 3.5rem 2rem;
+      text-align: center;
+      overflow: hidden;
+      transition: border-color 240ms ease, background 240ms ease, transform 320ms cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 320ms ease;
+      user-select: none;
+    }
+    .dropzone:hover, .dropzone.over {
+      border-color: var(--accent);
+      background: rgba(184, 240, 96, 0.045);
+      transform: translateY(-4px);
+      box-shadow: 0 24px 55px -24px rgba(184, 240, 96, 0.3), inset 0 0 0 1px rgba(184, 240, 96, 0.08);
+    }
+    .dz-spotlight {
+      position: absolute;
+      inset: 0;
+      z-index: -1;
+      pointer-events: none;
+      opacity: 0;
+      background: radial-gradient(220px circle at var(--mx, 50%) var(--my, 50%), rgba(184, 240, 96, 0.16), transparent 60%);
+      transition: opacity 240ms ease;
+    }
+    .dropzone:hover .dz-spotlight { opacity: 1; }
+    .dz-body { display: grid; gap: 0.5rem; justify-items: center; }
+    .dz-icon-wrap {
+      position: relative;
+      display: grid;
+      place-items: center;
+      width: 64px;
+      height: 64px;
+      margin-bottom: 0.4rem;
+      animation: float-bob 4.5s ease-in-out infinite;
+    }
+    .dz-pulse {
+      position: absolute;
+      inset: 0;
+      margin: auto;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      border: 1px solid var(--accent);
+      opacity: 0;
+      pointer-events: none;
+    }
+    .dropzone:hover .dz-pulse, .dropzone.over .dz-pulse { animation: dz-ripple 1.9s ease-out infinite; }
+    .dropzone:hover .dz-pulse--2, .dropzone.over .dz-pulse--2 { animation-delay: 0.95s; }
+    .dz-icon { position: relative; color: #242b3a; transition: color 220ms ease, transform 320ms cubic-bezier(0.2, 0.8, 0.2, 1); }
+    .dropzone:hover .dz-icon, .dropzone.over .dz-icon { color: var(--accent); transform: scale(1.1); }
+    .dz-label { font-size: 0.95rem; font-weight: 500; color: #7a86a0; transition: color 220ms ease; }
+    .dropzone:hover .dz-label, .dropzone.over .dz-label { color: #cdd6e6; }
+    .dz-hint { font-size: 0.8rem; color: #2e3548; transition: color 220ms ease; }
+    .dropzone:hover .dz-hint, .dropzone.over .dz-hint { color: #5a647c; }
+
+    /* ── Config stage ── */
+    .stage-config {
+      width: min(960px, 100%);
+      display: grid;
+      gap: 0.9rem;
+    }
+    .stage-config .editor-top { background: transparent; border-bottom: 0; padding-left: 0; padding-right: 0; }
+    .config-card {
+      display: grid;
+      grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+      gap: 1.5rem;
+      padding: 1.5rem;
+      background: #0a0d12;
+      border: 1px solid #181d28;
+      border-radius: 16px;
+      align-items: center;
+    }
+    .config-card.srt-only { grid-template-columns: minmax(0, 1fr); }
+    .config-card.srt-only .config-preview { display: none; }
+    .config-preview {
+      position: relative;
+      aspect-ratio: 16 / 9;
+      background: #000;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid #181d28;
+    }
+    .config-preview video { width: 100%; height: 100%; object-fit: contain; }
+    .config-form { display: grid; gap: 0.85rem; align-content: center; }
+    .config-title { font-size: 1.8rem; line-height: 1.1; color: #eef1f6; }
+    .config-sub { margin: -0.4rem 0 0.3rem; font-size: 0.86rem; line-height: 1.5; color: #8893ab; }
+
+    .editor-top {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding: 0.55rem 1rem;
+      border-bottom: 1px solid #141820;
+      background: #080a0e;
+    }
+    .video-meta {
+      flex: 1 1 auto;
+      min-width: 0;
+      font-size: 0.8rem;
+      color: #8490a8;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .field { display: grid; gap: 0.3rem; }
+    .field > span {
+      font-size: 0.66rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+    }
+    .field > span small { text-transform: none; letter-spacing: 0; color: #333b4c; }
+    .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; }
+    .field-row--3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.8rem; }
+
+    select {
+      appearance: none;
+      background-color: var(--panel-2);
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%238490a8' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 0.6rem center;
+      border: 1px solid var(--line-2);
+      border-radius: 8px;
+      color: #c3cbdd;
+      font-size: 0.84rem;
+      padding: 0.5rem 2rem 0.5rem 0.6rem;
+      cursor: pointer;
+      transition: border-color 120ms ease, background-color 120ms ease;
+      width: 100%;
+    }
+    select:hover { border-color: #2e3a52; background-color: #11151e; }
+    select:focus { outline: none; border-color: var(--accent); }
+    input[type="text"], input[type="number"], textarea {
+      background-color: var(--panel-2);
+      border: 1px solid var(--line-2);
+      border-radius: 8px;
+      color: #c3cbdd;
+      font-size: 0.84rem;
+      padding: 0.5rem 0.6rem;
+      width: 100%;
+      transition: border-color 120ms ease;
+    }
+    input:focus, textarea:focus { outline: none; border-color: var(--accent); }
+    textarea { resize: vertical; min-height: 60px; }
+
+    .option-field {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.7rem;
+      padding: 0.7rem 0.8rem;
+      border: 1px solid rgba(184, 240, 96, 0.16);
+      border-radius: 11px;
+      background: rgba(184, 240, 96, 0.045);
+      cursor: pointer;
+    }
+    .option-field input { margin-top: 0.18rem; accent-color: var(--accent); }
+    .option-copy { display: grid; gap: 0.15rem; }
+    .option-copy strong { color: #dfe6f4; font-size: 0.84rem; font-weight: 600; letter-spacing: -0.01em; }
+    .option-copy small { color: #7e8aa3; font-size: 0.74rem; line-height: 1.35; }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #06080b;
+      border: none;
+      border-radius: 8px;
+      padding: 0.6rem 1.1rem;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      letter-spacing: -0.01em;
+      transition: opacity 120ms ease;
+    }
+    .btn-primary:hover:not(:disabled) { opacity: 0.85; }
+    .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-block { width: 100%; margin-top: 0.3rem; }
+    .btn-ghost {
+      background: transparent;
+      border: 1px solid var(--line-2);
+      border-radius: 8px;
+      color: #c3cbdd;
+      padding: 0.42rem 0.7rem;
+      font-size: 0.82rem;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      transition: border-color 120ms ease, color 120ms ease;
+    }
+    .btn-ghost:hover:not(:disabled) { border-color: var(--accent); color: #fff; }
+    .btn-soft {
+      background: #0e1118;
+      border: 1px solid var(--line-2);
+      border-radius: 8px;
+      color: #c3cbdd;
+      padding: 0.45rem 0.7rem;
+      font-size: 0.8rem;
+      font-weight: 500;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      transition: border-color 120ms ease, color 120ms ease;
+    }
+    .btn-soft:hover:not(:disabled) { border-color: var(--accent); color: #fff; }
+    .btn-soft--primary { background: var(--accent); border-color: var(--accent); color: #06080b; font-weight: 600; }
+    .btn-soft--primary:hover:not(:disabled) { opacity: 0.85; color: #06080b; }
+
+    /* Generation progress */
+    .gen-progress { margin-top: 0.6rem; display: grid; gap: 0.5rem; }
+    .gen-progress-head { display: flex; align-items: baseline; justify-content: space-between; gap: 0.75rem; }
+    .gen-status { font-size: 0.84rem; font-weight: 500; color: #c2cadb; letter-spacing: -0.01em; }
+    .gen-status[data-kind="error"] { color: var(--red); }
+    .gen-pct { font-size: 0.84rem; font-weight: 600; color: var(--accent); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; flex-shrink: 0; }
+    .gen-track { position: relative; height: 7px; border-radius: 999px; background: rgba(255, 255, 255, 0.07); overflow: hidden; }
+    .gen-fill {
+      height: 100%;
+      width: 0%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #5fae2f, #b8f060, #5fae2f);
+      background-size: 220% 100%;
+      box-shadow: 0 0 8px rgba(184, 240, 96, 0.35);
+      animation: gen-flow 2.4s linear infinite;
+      transition: width 140ms linear;
+    }
+    .gen-fill.is-indeterminate { width: 40% !important; background: linear-gradient(90deg, transparent, #b8f060, transparent); box-shadow: none; animation: indeterminate 1.15s ease-in-out infinite; }
+    .gen-error {
+      margin: 0.85rem 0 0;
+      padding: 0.7rem 0.85rem;
+      font-size: 0.82rem;
+      line-height: 1.45;
+      color: #f7baba;
+      background: rgba(240, 88, 88, 0.1);
+      border: 1px solid rgba(240, 88, 88, 0.28);
+      border-radius: 11px;
+    }
+    .gen-log {
+      max-height: 150px;
+      overflow: auto;
+      background: #0a0d12;
+      border: 1px solid #181d28;
+      border-radius: 11px;
+      padding: 0.7rem;
+      font: 11px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      color: #7d8aa3;
+      white-space: pre-wrap;
+      margin: 0;
+    }
+
+    .export-video-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 80;
+      display: grid;
+      place-items: center;
+      padding: 1.2rem;
+      background: rgba(6, 8, 11, 0.62);
+      -webkit-backdrop-filter: blur(6px);
+      backdrop-filter: blur(6px);
+    }
+    .export-video-modal[hidden] { display: none; }
+    .ev-dialog {
+      width: min(460px, 100%);
+      background: rgba(14, 17, 23, 0.97);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 18px;
+      padding: 1.4rem;
+      box-shadow: 0 30px 70px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+      color: #e8ecf3;
+      display: grid;
+      gap: 0.85rem;
+    }
+    .ev-head { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; }
+    .ev-head h3 { font-family: "Outfit", sans-serif; font-size: 1.05rem; font-weight: 600; letter-spacing: -0.01em; }
+    .ev-close {
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      background: rgba(255, 255, 255, 0.04);
+      color: #aeb6c6;
+      cursor: pointer;
+      display: grid;
+      place-items: center;
+    }
+    .ev-close:hover { background: rgba(255, 255, 255, 0.1); color: #fff; }
+    .ev-status { font-size: 0.88rem; font-weight: 500; color: var(--accent); letter-spacing: -0.01em; }
+    .ev-status[data-kind="error"] { color: var(--red); }
+    .ev-status[data-kind="ok"] { color: var(--green); }
+
+    /* ── Editor stage ── */
+    .stage-editor {
+      position: fixed;
+      inset: 0;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr) auto;
+      background: #06080b;
+      z-index: 20;
+    }
+    .editor-actions {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.45rem;
+      justify-content: flex-end;
+      margin-left: auto;
+    }
+    .orig-select {
+      background: #0e1118;
+      border: 1px solid #1c2234;
+      border-radius: 7px;
+      color: #8490a8;
+      font-size: 0.78rem;
+      padding: 0.4rem 0.5rem;
+      max-width: 190px;
+      cursor: pointer;
+    }
+    .editor-body {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 360px;
+      min-height: 0;
+      overflow: hidden;
+    }
+    .editor-main {
+      display: grid;
+      grid-template-rows: minmax(0, 1fr) auto;
+      min-width: 0;
+      min-height: 0;
+      overflow: hidden;
+    }
+    .video-preview { position: relative; min-height: 0; background: #000; overflow: hidden; }
+    .video-preview video { width: 100%; height: 100%; display: block; object-fit: contain; }
+    .caption-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 3; pointer-events: none; }
+    .caption-box {
+      position: absolute;
+      left: 50%;
+      bottom: 8%;
+      transform: translateX(-50%);
+      box-sizing: border-box;
+      width: max-content;
+      max-width: 80%;
+      padding: 0.22rem 0.6rem;
+      border-radius: 6px;
+      background: transparent;
+      color: #fff;
+      font-size: clamp(14px, 2.4vw, 26px);
+      font-weight: 600;
+      text-align: center;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      cursor: grab;
+      pointer-events: auto;
+      touch-action: none;
+      user-select: none;
+    }
+    .caption-box.is-dragging { cursor: grabbing; }
+    .caption-box.is-free { outline: 1.5px dashed rgba(255,255,255,0.4); outline-offset: 4px; }
+
+    .style-bar {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.7rem 1rem;
+      padding: 0.55rem 0.7rem;
+      background: #0a0d12;
+      border-top: 1px solid #181d28;
+    }
+    .style-control { display: flex; align-items: center; gap: 0.45rem; }
+    .style-control label { font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+    .style-control input[type="range"] { width: 90px; accent-color: var(--accent); }
+    .style-control input[type="color"] { width: 28px; height: 26px; border: none; background: none; padding: 0; cursor: pointer; }
+    .pos-seg { display: flex; gap: 0.25rem; }
+    .pos-seg button {
+      background: #0e1118;
+      border: 1px solid #1c2234;
+      border-radius: 6px;
+      color: #8490a8;
+      padding: 0.3rem 0.55rem;
+      font-size: 0.72rem;
+      cursor: pointer;
+      transition: all 120ms ease;
+    }
+    .pos-seg button.is-on { background: var(--accent); border-color: var(--accent); color: #06080b; font-weight: 600; }
+
+    .mini-select {
+      background: #0e1118;
+      border: 1px solid #1c2234;
+      border-radius: 6px;
+      color: #c3cbdd;
+      font-size: 0.78rem;
+      padding: 0.32rem 0.45rem;
+      cursor: pointer;
+    }
+    .mini-select:hover { border-color: #2e3a52; }
+    .anim-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      cursor: pointer;
+      font-size: 0.78rem;
+      color: #c3cbdd;
+    }
+    .anim-toggle input { accent-color: var(--accent); }
+
+    .mini-number {
+      width: 58px;
+      background: #0e1118;
+      border: 1px solid #1c2234;
+      border-radius: 6px;
+      color: #c3cbdd;
+      font-size: 0.78rem;
+      padding: 0.3rem 0.4rem;
+    }
+    .mini-number:focus { outline: none; border-color: var(--accent); }
+
+    .caption-box .cw {
+      opacity: 0.38;
+      display: inline-block;
+      transition: opacity 90ms linear, transform 90ms linear;
+    }
+    .caption-box .cw.is-spoken {
+      opacity: 1;
+      transform: scale(1.04);
+    }
+
+    .sidebar {
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      background: #0a0d12;
+      border-left: 1px solid #181d28;
+      min-height: 0;
+      overflow: hidden;
+    }
+    .sidebar-head {
+      padding: 0.6rem 0.7rem;
+      border-bottom: 1px solid #141820;
+      font-size: 0.72rem;
+      color: #7f8ba3;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-weight: 700;
+    }
+    .seg-list {
+      list-style: none;
+      margin: 0;
+      padding: 0.6rem;
+      overflow-y: auto;
+      display: grid;
+      gap: 0.45rem;
+      align-content: start;
+    }
+    .seg-empty { color: #3a4258; font-size: 0.82rem; padding: 1.5rem 0.5rem; text-align: center; }
+    .seg {
+      background: #0b0e14;
+      border: 1px solid #161b24;
+      border-radius: 9px;
+      padding: 0.5rem 0.55rem;
+      display: grid;
+      gap: 0.4rem;
+      transition: border-color 120ms ease, background 120ms ease;
+      cursor: pointer;
+    }
+    .seg.is-active { border-color: var(--accent); background: rgba(184, 240, 96, 0.05); }
+    .seg-row { display: flex; align-items: center; gap: 0.3rem; }
+    .seg-play { background: none; border: none; color: #5a647c; cursor: pointer; padding: 0.15rem; display: grid; place-items: center; border-radius: 5px; transition: color 120ms ease; }
+    .seg-play:hover { color: var(--accent); }
+    .t-input {
+      width: 4.8rem;
+      background: #0e1118;
+      border: 1px solid #1c2234;
+      border-radius: 6px;
+      color: #8490a8;
+      font-size: 0.7rem;
+      padding: 0.2rem 0.3rem;
+      font-variant-numeric: tabular-nums;
+      text-align: center;
+    }
+    .t-input:focus { outline: none; border-color: var(--accent); color: #e2e6ee; }
+    .t-sep { color: #2e3548; font-size: 0.7rem; }
+    .seg-del { margin-left: auto; background: none; border: none; color: #333b4c; cursor: pointer; font-size: 0.8rem; padding: 0.15rem 0.35rem; border-radius: 5px; transition: color 120ms ease; }
+    .seg-del:hover { color: var(--red); }
+    .seg-text {
+      width: 100%;
+      resize: vertical;
+      min-height: 2.4rem;
+      background: transparent;
+      border: none;
+      color: #d6dcea;
+      font-size: 0.85rem;
+      line-height: 1.4;
+      padding: 0.1rem 0.15rem;
+    }
+    .seg-text:focus { outline: none; }
+    .sidebar-foot {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.55rem 0.7rem;
+      border-top: 1px solid #141820;
+    }
+    .seg-count { font-size: 0.74rem; color: #404858; font-variant-numeric: tabular-nums; }
+
+    /* ── Timeline ── */
+    .timeline {
+      border-top: 1px solid #181d28;
+      background: #080a0e;
+      display: grid;
+      grid-template-rows: auto auto;
+      user-select: none;
+    }
+    .timeline-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 0.7rem;
+      padding: 0.4rem 0.8rem;
+      border-bottom: 1px solid #11151d;
+    }
+    .tl-play {
+      width: 30px;
+      height: 30px;
+      border-radius: 7px;
+      border: 1px solid #1c2234;
+      background: #0e1118;
+      color: var(--accent);
+      display: grid;
+      place-items: center;
+      cursor: pointer;
+      transition: border-color 120ms ease;
+    }
+    .tl-play:hover { border-color: var(--accent); }
+    .tl-play .ic-pause { display: none; }
+    .timeline.is-playing .tl-play .ic-play { display: none; }
+    .timeline.is-playing .tl-play .ic-pause { display: block; }
+    .tl-clock { font-size: 0.76rem; color: #8490a8; font-variant-numeric: tabular-nums; }
+    .tl-tools { margin-left: auto; display: flex; align-items: center; gap: 0.5rem; }
+    .tl-volume { display: flex; align-items: center; gap: 0.3rem; }
+    .tl-volume-range { width: 72px; height: 4px; margin: 0; cursor: pointer; accent-color: var(--accent); }
+    .tl-icon-btn {
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      border: 1px solid #1c2234;
+      background: #0e1118;
+      color: #8490a8;
+      display: grid;
+      place-items: center;
+      cursor: pointer;
+      transition: border-color 120ms ease, color 120ms ease;
+    }
+    .tl-icon-btn:hover { border-color: #2e3a52; color: #e2e6ee; }
+    .tl-icon-btn svg { width: 16px; height: 16px; }
+    .tl-zoom { display: flex; gap: 0.3rem; }
+    .tl-zoom-btn {
+      width: 26px;
+      height: 26px;
+      border-radius: 6px;
+      border: 1px solid #1c2234;
+      background: #0e1118;
+      color: #8490a8;
+      font-size: 1rem;
+      line-height: 1;
+      cursor: pointer;
+      display: grid;
+      place-items: center;
+      transition: all 120ms ease;
+    }
+    .tl-zoom-btn:hover { border-color: #2e3a52; color: #e2e6ee; }
+    #vp-mute .ic-mute, .timeline.is-muted #vp-mute .ic-vol { display: none; }
+    .timeline.is-muted #vp-mute .ic-mute { display: block; }
+    #vp-fullscreen .ic-fs-exit, .timeline.is-fullscreen #vp-fullscreen .ic-fs { display: none; }
+    .timeline.is-fullscreen #vp-fullscreen .ic-fs-exit { display: block; }
+
+    .timeline-scroll { overflow-x: auto; overflow-y: hidden; height: 120px; }
+    .timeline-scroll::-webkit-scrollbar { height: 9px; }
+    .timeline-track { position: relative; height: 100%; min-width: 100%; }
+    .timeline-ruler { position: absolute; inset: 0 0 auto 0; height: 26px; border-bottom: 1px solid #11151d; cursor: ew-resize; }
+    .timeline.is-scrubbing, .timeline.is-scrubbing * { cursor: ew-resize !important; }
+    .tl-tick { position: absolute; top: 0; height: 26px; }
+    .tl-tick i { position: absolute; top: 0; left: 0; width: 1px; height: 8px; background: #2a3346; }
+    .tl-tick b { position: absolute; top: 9px; left: 3px; font-size: 0.62rem; font-weight: 500; color: #4a546a; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .timeline-blocks { position: absolute; left: 0; right: 0; top: 40px; height: 64px; }
+    .tl-block {
+      position: absolute;
+      top: 28px;
+      height: calc(100% - 30px);
+      background: linear-gradient(180deg, #1a2738, #131c29);
+      border: 1px solid #2e3a52;
+      border-radius: 7px;
+      overflow: hidden;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      transition: border-color 120ms ease, background 120ms ease;
+    }
+    .tl-block:hover { border-color: #3d4d6b; }
+    .tl-block.is-active { border-color: var(--accent); background: linear-gradient(180deg, rgba(184, 240, 96, 0.22), rgba(184, 240, 96, 0.08)); }
+    .tl-block-label {
+      flex: 1;
+      min-width: 0;
+      padding: 0 0.5rem;
+      font-size: 0.72rem;
+      line-height: 1.25;
+      color: #c3cbdd;
+      overflow: hidden;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      line-clamp: 2;
+      -webkit-box-orient: vertical;
+      pointer-events: none;
+    }
+    .timeline-playhead {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background: var(--red);
+      pointer-events: none;
+      z-index: 4;
+    }
+    .timeline-playhead::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      border-left: 5px solid transparent;
+      border-right: 5px solid transparent;
+      border-top: 6px solid var(--red);
+    }
+
+    /* ── Animations ── */
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes gen-flow { to { background-position: -220% 0; } }
+    @keyframes indeterminate { 0% { transform: translateX(-120%); } 100% { transform: translateX(320%); } }
+    @keyframes mark-shimmer { 0%, 18% { background-position: 130% 0; } 60%, 100% { background-position: -130% 0; } }
+    @keyframes badge-pulse { 0% { box-shadow: 0 0 0 0 rgba(184, 240, 96, 0.5); } 70% { box-shadow: 0 0 0 6px rgba(184, 240, 96, 0); } 100% { box-shadow: 0 0 0 0 rgba(184, 240, 96, 0); } }
+    @keyframes float-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+    @keyframes dz-ripple { 0% { opacity: 0.5; transform: scale(0.7); } 100% { opacity: 0; transform: scale(2.2); } }
+    @keyframes aurora-drift { from { transform: translate(-50%, -50%) rotate(0deg) scale(1); } to { transform: translate(-46%, -54%) rotate(8deg) scale(1.08); } }
+
+    @media (prefers-reduced-motion: reduce) {
+      .stage-aurora::before, .hero-badge-dot, .dz-icon-wrap, .dz-pulse, .hero-mark-text, .gen-fill { animation: none !important; }
+    }
+    @media (max-width: 880px) {
+      .editor-body { grid-template-columns: 1fr; grid-template-rows: minmax(0, 1fr) minmax(0, 0.9fr); }
+      .sidebar { border-left: none; border-top: 1px solid #181d28; }
+    }
+    @media (max-width: 720px) {
+      .config-card { grid-template-columns: 1fr; }
+      .field-row, .field-row--3 { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="status-dock">
+    <span id="dock-label" class="status-label" data-state="ready">Modelo local</span>
+  </div>
+
+  <main class="app" id="app">
+    <!-- ── Upload stage ── -->
+    <section id="stage-upload" class="stage-upload">
+      <div class="stage-aurora" aria-hidden="true"></div>
+      <div class="hero">
+        <span class="hero-badge"><span class="hero-badge-dot"></span> Transcripción local con faster-whisper</span>
+        <h1 class="hero-title">
+          <span>Subtítulos</span>
+          <span> para </span>
+          <span class="hero-mark"><span class="hero-mark-text">tu video</span></span>
+        </h1>
+        <p class="hero-sub">Sube un video o audio, genera subtítulos con tu modelo local de Whisper y edítalos antes de exportar.</p>
+      </div>
+      <div id="dropzone" class="dropzone" role="button" tabindex="0" aria-label="Subir video o audio">
+        <input id="video-input" type="file" accept="video/*,audio/*" hidden>
+        <span class="dz-spotlight" aria-hidden="true"></span>
+        <div class="dz-body">
+          <span class="dz-icon-wrap">
+            <span class="dz-pulse" aria-hidden="true"></span>
+            <span class="dz-pulse dz-pulse--2" aria-hidden="true"></span>
+            <svg class="dz-icon" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 16V4"></path><path d="m6 10 6-6 6 6"></path>
+              <path d="M4 20h16"></path>
+            </svg>
+          </span>
+          <strong class="dz-label">Arrastra tu video o audio aquí</strong>
+          <span class="dz-hint">o haz clic para elegir un archivo</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Config stage ── -->
+    <section id="stage-config" class="stage-config" hidden>
+      <header class="editor-top">
+        <button id="config-back-btn" class="btn-ghost" type="button">‹ Cambiar video</button>
+        <div id="config-meta" class="video-meta"></div>
+      </header>
+      <div class="config-card">
+        <div class="config-preview">
+          <video id="config-video" muted playsinline preload="metadata"></video>
+        </div>
+        <div class="config-form">
+          <h2 class="config-title">Configura la transcripción</h2>
+          <p class="config-sub">Ajusta el modelo y las opciones. El modelo se ejecuta en local.</p>
+
+          <label class="option-field">
+            <input id="cfg-srt-only" type="checkbox">
+            <span class="option-copy"><strong>Solo descargar SRT</strong><small>Al terminar descarga los tiempos directamente, sin abrir el editor ni cargar la vista previa.</small></span>
+          </label>
+
+          <div class="field-row">
+            <label class="field"><span>Fuente del subtítulo</span>
+              <select name="font" id="cfg-font">
+                <option value="sans" selected>Sans</option>
+                <option value="serif">Serif</option>
+                <option value="rounded">Redondeada</option>
+                <option value="condensed">Condensada</option>
+                <option value="mono">Mono</option>
+                <option value="payday">Payday</option>
+              </select>
+            </label>
+            <label class="field"><span>Tamaño de letra</span>
+              <select name="font_size" id="cfg-size">
+                <option value="0.8">Pequeño</option>
+                <option value="1" selected>Normal</option>
+                <option value="1.2">Grande</option>
+                <option value="1.8">Muy grande</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="field-row">
+            <label class="field"><span>Trazo</span>
+              <input name="outline" id="cfg-outline" type="number" min="0" max="40" step="1" value="3" title="Grosor del borde en píxeles (referencia 1080p). 0 = sin trazo.">
+            </label>
+            <label class="field"><span>Fondo</span>
+              <select name="background" id="cfg-background">
+                <option value="0" selected>Sin fondo</option>
+                <option value="1">Fondo oscuro</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="field-row">
+            <label class="field"><span>Modelo</span>
+              <select name="model" id="cfg-model">
+                <option value="large-v3" selected>large-v3</option>
+                <option value="large-v3-turbo">large-v3-turbo</option>
+                <option value="turbo">turbo</option>
+                <option value="medium">medium</option>
+                <option value="small">small</option>
+                <option value="base">base</option>
+              </select>
+            </label>
+            <label class="field"><span>Idioma</span>
+              <select name="language" id="cfg-language">
+                <option value="es" selected>Español</option>
+                <option value="en">Inglés</option>
+                <option value="auto">Auto</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="field-row">
+            <label class="field"><span>Dispositivo</span>
+              <select name="device" id="cfg-device">
+                <option value="cuda" selected>CUDA</option>
+                <option value="cpu">CPU</option>
+                <option value="auto">Auto</option>
+              </select>
+            </label>
+            <label class="field"><span>Precisión</span>
+              <select name="compute_type" id="cfg-compute_type">
+                <option value="float16" selected>float16</option>
+                <option value="int8_float16">int8_float16</option>
+                <option value="int8">int8</option>
+                <option value="float32">float32</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="field-row">
+            <label class="field"><span>Acción</span>
+              <select name="task" id="cfg-task">
+                <option value="transcribe" selected>Transcribir en el idioma original</option>
+                <option value="translate">Traducir a inglés</option>
+              </select>
+            </label>
+            <label class="field"><span>Formato</span>
+              <select name="output_format" id="cfg-output_format">
+                <option value="srt" selected>SRT</option>
+                <option value="vtt">VTT</option>
+                <option value="txt">TXT</option>
+                <option value="all">Todos</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="field-row">
+            <label class="field"><span>Separación</span>
+              <select name="split_mode" id="cfg-split_mode">
+                <option value="words" selected>Por palabras</option>
+                <option value="width">Por ancho de línea</option>
+                <option value="none">Sin ajuste</option>
+              </select>
+            </label>
+            <label class="field"><span>Beam size</span>
+              <input name="beam_size" id="cfg-beam_size" type="number" min="1" max="10" value="5">
+            </label>
+          </div>
+
+          <div id="words-panel" class="field-row">
+            <label class="field"><span>Máx. palabras por subtítulo</span>
+              <input name="max_words_per_line" id="cfg-max_words_per_line" type="number" min="1" max="20" value="3">
+            </label>
+            <label class="field"><span>Espacios entre palabras</span>
+              <input name="word_spacing" id="cfg-word_spacing" type="number" min="1" max="12" value="1">
+            </label>
+          </div>
+
+          <div id="width-panel" class="field-row" hidden>
+            <label class="field"><span>Ancho máximo</span>
+              <input name="max_line_width" id="cfg-max_line_width" type="number" min="10" max="80" value="42">
+            </label>
+            <label class="field"><span>Líneas máximas</span>
+              <input name="max_line_count" id="cfg-max_line_count" type="number" min="1" max="4" value="2">
+            </label>
+          </div>
+
+          <label class="option-field">
+            <input name="word_timestamps" id="cfg-word_timestamps" type="checkbox" checked>
+            <span class="option-copy"><strong>Timestamps por palabra</strong><small>Se activan automáticamente al separar por palabras o ancho.</small></span>
+          </label>
+
+          <label class="option-field">
+            <input name="vad_filter" id="cfg-vad_filter" type="checkbox">
+            <span class="option-copy"><strong>Filtrar silencios</strong><small>Recorta los silencios del audio antes de transcribir.</small></span>
+          </label>
+
+          <div class="field-row">
+            <label class="field"><span>Batch size</span>
+              <input name="batch_size" id="cfg-batch_size" type="number" min="1" max="32" placeholder="Opcional">
+            </label>
+            <label class="field"><span>Prompt inicial</span>
+              <input name="initial_prompt" id="cfg-initial_prompt" type="text" placeholder="Opcional">
+            </label>
+          </div>
+
+          <button id="transcribe-btn" class="btn-primary btn-block" type="button">Transcribir</button>
+
+          <div id="config-progress" class="gen-progress" hidden>
+            <div class="gen-progress-head">
+              <span id="config-status" class="gen-status">Preparando…</span>
+              <span id="config-progress-pct" class="gen-pct"></span>
+            </div>
+            <div class="gen-track"><div id="config-progress-fill" class="gen-fill is-indeterminate"></div></div>
+            <pre id="config-log" class="gen-log" hidden></pre>
+          </div>
+          <p id="config-error" class="gen-error" hidden></p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Editor stage ── -->
+    <section id="stage-editor" class="stage-editor" hidden>
+      <header class="editor-top">
+        <button id="back-btn" class="btn-ghost" type="button">‹ Volver</button>
+        <div id="video-meta" class="video-meta"></div>
+        <div class="editor-actions">
+          <select id="orig-select" class="orig-select" title="Archivo original"></select>
+          <button id="download-orig-btn" class="btn-soft" type="button">Original</button>
+          <button id="download-txt-btn" class="btn-soft" type="button">TXT</button>
+          <button id="download-vtt-btn" class="btn-soft" type="button">VTT</button>
+          <button id="download-srt-btn" class="btn-soft btn-soft--primary" type="button">Descargar SRT</button>
+          <button id="export-video-btn" class="btn-soft" type="button" title="Incrustar subtítulos en el video">Exportar video</button>
+          <button id="seo-btn" class="btn-soft btn-soft--primary" type="button" title="Generar descripción y capítulos para YouTube">✨ SEO YouTube</button>
+        </div>
+      </header>
+
+      <div class="editor-body">
+        <div class="editor-main">
+          <div class="video-preview" id="video-preview">
+            <video id="video" playsinline></video>
+            <div id="caption-overlay" class="caption-layer">
+              <div id="caption-box" class="caption-box" hidden></div>
+            </div>
+          </div>
+          <div class="style-bar">
+            <div class="style-control">
+              <label>Tamaño</label>
+              <input id="cs-size" type="range" min="0.7" max="2" step="0.05" value="1">
+            </div>
+            <div class="style-control">
+              <label>Color</label>
+              <input id="cs-color" type="color" value="#ffffff">
+            </div>
+            <div class="style-control">
+              <label>Fuente</label>
+              <select id="cs-font" class="mini-select">
+                <option value="sans" selected>Sans</option>
+                <option value="serif">Serif</option>
+                <option value="rounded">Redondeada</option>
+                <option value="condensed">Condensada</option>
+                <option value="mono">Mono</option>
+                <option value="payday">Payday</option>
+              </select>
+            </div>
+            <div class="style-control">
+              <label>Espaciado</label>
+              <input id="cs-spacing" type="number" min="1" max="12" value="1" class="mini-number">
+            </div>
+            <div class="style-control">
+              <label>Posición</label>
+              <div class="pos-seg" id="cs-position">
+                <button type="button" data-pos="top">Arriba</button>
+                <button type="button" data-pos="middle">Centro</button>
+                <button type="button" data-pos="bottom" class="is-on">Abajo</button>
+                <button type="button" data-pos="libre" title="Arrastra el subtítulo con el mouse">Libre</button>
+              </div>
+            </div>
+            <label class="anim-toggle" title="Resalta cada palabra mientras suena el audio">
+              <input id="cs-word-highlight" type="checkbox"> Animación de palabras
+            </label>
+            <div class="style-control">
+              <label>Trazo</label>
+              <input id="cs-outline" type="number" min="0" max="40" step="1" value="3" class="mini-number">
+            </div>
+            <label class="anim-toggle" title="Muestra un fondo oscuro detrás del texto">
+              <input id="cs-background" type="checkbox"> Fondo
+            </label>
+          </div>
+        </div>
+
+        <aside class="sidebar">
+          <div class="sidebar-head">Subtítulos</div>
+          <ul id="seg-list" class="seg-list">
+            <li class="seg-empty">Sin subtítulos</li>
+          </ul>
+          <div class="sidebar-foot">
+            <button id="add-seg-btn" class="btn-ghost" type="button">+ Añadir línea</button>
+            <span id="seg-count" class="seg-count"></span>
+          </div>
+        </aside>
+      </div>
+
+      <div class="timeline" id="timeline">
+        <div class="timeline-toolbar">
+          <button id="tl-play" class="tl-play" type="button" aria-label="Reproducir / pausar">
+            <svg class="ic-play" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+            <svg class="ic-pause" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg>
+          </button>
+          <span id="tl-clock" class="tl-clock">0:00 / 0:00</span>
+          <div class="tl-tools">
+            <div class="tl-volume">
+              <button id="vp-mute" class="tl-icon-btn" type="button" aria-label="Silenciar">
+                <svg class="ic-vol" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9.5 9.5 0 0 1 0 13"/></svg>
+                <svg class="ic-mute" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H2v6h4l5 4z"/><path d="m22 9-6 6"/><path d="m16 9 6 6"/></svg>
+              </button>
+              <input id="vp-volume" class="tl-volume-range" type="range" min="0" max="1" step="0.05" value="1" aria-label="Volumen">
+            </div>
+            <button id="vp-fullscreen" class="tl-icon-btn" type="button" aria-label="Pantalla completa">
+              <svg class="ic-fs" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M16 3h3a2 2 0 0 1 2 2v3"/><path d="M8 21H5a2 2 0 0 1-2-2v-3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
+              <svg class="ic-fs-exit" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h3a2 2 0 0 0 2-2V3"/><path d="M21 8h-3a2 2 0 0 1-2-2V3"/><path d="M3 16h3a2 2 0 0 1 2 2v3"/><path d="M21 16h-3a2 2 0 0 0-2 2v3"/></svg>
+            </button>
+            <div class="tl-zoom">
+              <button id="tl-zoom-out" class="tl-zoom-btn" type="button" title="Alejar">−</button>
+              <button id="tl-zoom-in" class="tl-zoom-btn" type="button" title="Acercar">+</button>
+            </div>
+          </div>
+        </div>
+        <div class="timeline-scroll" id="timeline-scroll">
+          <div class="timeline-track" id="timeline-track">
+            <div class="timeline-ruler" id="timeline-ruler"></div>
+            <div class="timeline-blocks" id="timeline-blocks"></div>
+            <div class="timeline-playhead" id="timeline-playhead"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div id="export-video-modal" class="export-video-modal" hidden>
+      <div class="ev-dialog">
+        <div class="ev-head">
+          <h3>Exportando video</h3>
+          <button id="ev-close" class="ev-close" type="button" title="Cerrar">✕</button>
+        </div>
+        <p id="ev-status" class="ev-status">Preparando…</p>
+        <div class="gen-track"><div id="ev-fill" class="gen-fill is-indeterminate"></div></div>
+        <pre id="ev-log" class="gen-log" hidden></pre>
+      </div>
+    </div>
+
+    <div id="seo-modal" class="export-video-modal" hidden>
+      <div class="ev-dialog" style="width: min(720px, 100%);">
+        <div class="ev-head">
+          <h3>Descripción SEO y capítulos para YouTube</h3>
+          <button id="seo-close" class="ev-close" type="button" title="Cerrar">✕</button>
+        </div>
+        <p id="seo-status" class="ev-status">Generando descripción…</p>
+        <pre id="seo-result" class="gen-log" style="max-height: 60vh; overflow:auto; white-space: pre-wrap; text-align: left; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 1rem;"></pre>
+        <div class="ev-head">
+          <button id="seo-copy" class="btn-soft btn-soft--primary" type="button">Copiar descripción</button>
+          <button id="seo-download" class="btn-soft" type="button">Descargar .txt</button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+
+    const state = {
+      file: null,
+      jobId: null,
+      uploadName: null,
+      outputs: [],
+      originalName: null,
+      segments: [],
+      current: -1,
+      duration: 0,
+      zoom: 1,
+      customPos: null,
+    };
+
+    // ── Helpers ──
+    const pad = (n) => String(n).padStart(2, "0");
+    function fmt(sec, sep) {
+      sep = sep === undefined ? "," : sep;
+      const ms = Math.round(sec * 1000);
+      const h = Math.floor(ms / 3600000);
+      const m = Math.floor((ms % 3600000) / 60000);
+      const s = Math.floor((ms % 60000) / 1000);
+      return pad(h) + ":" + pad(m) + ":" + pad(s) + sep + String(ms % 1000).padStart(3, "0");
+    }
+    function parseTime(v) {
+      const m = String(v).trim().match(/^(\d{1,2}):(\d{2}):(\d{2})[,.](\d{1,3})$/);
+      if (!m) return null;
+      return (+m[1]) * 3600 + (+m[2]) * 60 + (+m[3]) + (+m[4]) / 1000;
+    }
+    function fmtClock(t) {
+      const h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), s = Math.floor(t % 60);
+      return (h ? h + ":" + pad(m) : m) + ":" + pad(s);
+    }
+    function esc(s) {
+      return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    }
+    function parseSrt(content) {
+      const segs = [];
+      const blocks = content.replace(/\r\n/g, "\n").trim().split(/\n{2,}/);
+      for (const b of blocks) {
+        const lines = b.split("\n").filter((l) => l.trim());
+        if (!lines.length) continue;
+        let i = 0;
+        if (/^\d+$/.test(lines[0].trim())) i = 1;
+        const m = lines[i].match(/(\d{1,2}):(\d{2}):(\d{2})[,.](\d{1,3})\s*-->\s*(\d{1,2}):(\d{2}):(\d{2})[,.](\d{1,3})/);
+        if (!m) continue;
+        const start = (+m[1]) * 3600 + (+m[2]) * 60 + (+m[3]) + (+m[4]) / 1000;
+        const end = (+m[5]) * 3600 + (+m[6]) * 60 + (+m[7]) + (+m[8]) / 1000;
+        segs.push({ start, end, text: lines.slice(i + 1).join("\n") });
+      }
+      return segs;
+    }
+    function parseVtt(content) {
+      const segs = [];
+      const lines = content.replace(/\r\n/g, "\n").split("\n");
+      const startIdx = lines.findIndex((l) => l.includes("-->"));
+      if (startIdx === -1) return segs;
+      const blocks = lines.slice(startIdx).join("\n").trim().split(/\n{2,}/);
+      for (const b of blocks) {
+        const ls = b.split("\n").filter((l) => l.trim());
+        const ti = ls.findIndex((l) => l.includes("-->"));
+        if (ti === -1) continue;
+        const m = ls[ti].match(/(\d{1,2}):(\d{2}):(\d{2})[,.](\d{1,3})\s*-->\s*(\d{1,2}):(\d{2}):(\d{2})[,.](\d{1,3})/);
+        if (!m) continue;
+        const start = (+m[1]) * 3600 + (+m[2]) * 60 + (+m[3]) + (+m[4]) / 1000;
+        const end = (+m[5]) * 3600 + (+m[6]) * 60 + (+m[7]) + (+m[8]) / 1000;
+        segs.push({ start, end, text: ls.slice(ti + 1).join("\n") });
+      }
+      return segs;
+    }
+    function toSrt(segs) {
+      return segs.map((s, i) => (i + 1) + "\n" + fmt(s.start) + " --> " + fmt(s.end) + "\n" + s.text).join("\n\n") + "\n";
+    }
+    function toVtt(segs) {
+      return "WEBVTT\n\n" + segs.map((s) => fmt(s.start, ".") + " --> " + fmt(s.end, ".") + "\n" + s.text).join("\n\n") + "\n";
+    }
+    function toTxt(segs) {
+      return segs.map((s) => s.text).join("\n");
+    }
+    function stem(name) {
+      const base = String(name).split("/").pop();
+      const i = base.lastIndexOf(".");
+      return i > 0 ? base.slice(0, i) : base;
+    }
+    function downloadText(name, content, mime) {
+      const blob = new Blob([content], { type: mime || "text/plain;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = name;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+    }
+
+    // ── Stage switching ──
+    function showStage(name) {
+      ["upload", "config", "editor"].forEach((s) => { $("stage-" + s).hidden = s !== name; });
+    }
+
+    // ── Upload ──
+    const dropzone = $("dropzone");
+    const videoInput = $("video-input");
+
+    function setFile(file) {
+      if (!file) return;
+      state.file = file;
+      const cv = $("config-video");
+      if (!$("cfg-srt-only").checked) {
+        const url = URL.createObjectURL(file);
+        cv.src = url;
+        cv.load();
+      }
+      $("config-meta").textContent = file.name;
+      resetProgress();
+      showStage("config");
+    }
+
+    $("cfg-srt-only").addEventListener("change", (event) => {
+      const enabled = event.target.checked;
+      const card = document.querySelector(".config-card");
+      const preview = $("config-video");
+      card.classList.toggle("srt-only", enabled);
+      if (enabled) {
+        preview.pause();
+        preview.removeAttribute("src");
+        preview.load();
+      } else if (state.file) {
+        preview.src = URL.createObjectURL(state.file);
+        preview.load();
+      }
+      $("cfg-output_format").disabled = enabled;
+      if (enabled) $("cfg-output_format").value = "srt";
+    });
+
+    dropzone.addEventListener("click", () => videoInput.click());
+    dropzone.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); videoInput.click(); }
+    });
+    videoInput.addEventListener("change", () => setFile(videoInput.files[0]));
+
+    ["dragenter", "dragover"].forEach((ev) => dropzone.addEventListener(ev, (e) => {
+      e.preventDefault(); dropzone.classList.add("over");
+    }));
+    ["dragleave", "drop"].forEach((ev) => dropzone.addEventListener(ev, (e) => {
+      e.preventDefault(); dropzone.classList.remove("over");
+    }));
+    dropzone.addEventListener("drop", (e) => {
+      const file = e.dataTransfer.files && e.dataTransfer.files[0];
+      if (file) setFile(file);
+    });
+    dropzone.addEventListener("pointermove", (e) => {
+      const rect = dropzone.getBoundingClientRect();
+      dropzone.style.setProperty("--mx", (e.clientX - rect.left) + "px");
+      dropzone.style.setProperty("--my", (e.clientY - rect.top) + "px");
+    });
+
+    $("config-back-btn").addEventListener("click", () => {
+      showStage("upload");
+    });
+
+    // ── Config form ──
+    function syncSplitMode() {
+      const mode = $("cfg-split_mode").value;
+      $("words-panel").hidden = mode !== "words";
+      $("width-panel").hidden = mode !== "width";
+      const wt = $("cfg-word_timestamps");
+      if (mode === "words" || mode === "width") { wt.checked = true; wt.disabled = true; }
+      else { wt.disabled = false; }
+    }
+    $("cfg-split_mode").addEventListener("change", syncSplitMode);
+    syncSplitMode();
+
+    function resetProgress() {
+      $("config-progress").hidden = true;
+      $("config-log").hidden = true;
+      $("config-error").hidden = true;
+      $("config-status").dataset.kind = "";
+      $("config-status").textContent = "Preparando…";
+      $("config-progress-pct").textContent = "";
+      $("transcribe-btn").disabled = false;
+      setDock("ready", "Modelo local");
+    }
+    function setStatus(text, kind) {
+      const el = $("config-status");
+      el.textContent = text;
+      el.dataset.kind = kind || "";
+    }
+    function showLog(lines) {
+      if (!lines || !lines.length) return;
+      $("config-log").hidden = false;
+      $("config-log").textContent = lines.slice(-30).join("\n");
+    }
+    function showError(msg) {
+      const el = $("config-error");
+      el.textContent = msg;
+      el.hidden = false;
+    }
+    function setDock(state, text) {
+      $("dock-label").dataset.state = state;
+      $("dock-label").textContent = text;
+    }
+
+    $("transcribe-btn").addEventListener("click", async () => {
+      if (!state.file) return;
+      const btn = $("transcribe-btn");
+      btn.disabled = true;
+      $("config-error").hidden = true;
+      $("config-progress").hidden = false;
+      $("config-progress-fill").classList.add("is-indeterminate");
+      $("config-progress-pct").textContent = "";
+      setStatus("Subiendo archivo…");
+      setDock("busy", "Transcribiendo…");
+
+      const fd = new FormData();
+      fd.append("video", state.file);
+      const fields = ["model", "language", "device", "compute_type", "task", "output_format",
+        "beam_size", "split_mode", "max_words_per_line", "word_spacing",
+        "max_line_width", "max_line_count", "batch_size"];
+      for (const f of fields) {
+        const el = document.querySelector('[name="' + f + '"]');
+        if (!el) continue;
+        const v = String(el.value).trim();
+        if (f === "language" && v === "auto") continue;
+        if (!v && f === "batch_size") continue;
+        fd.append(f, v);
+      }
+      const srtOnly = $("cfg-srt-only").checked;
+      if (srtOnly) fd.set("output_format", "srt");
+      fd.append("srt_only", srtOnly ? "true" : "false");
+      fd.append("word_timestamps", $("cfg-word_timestamps").checked ? "true" : "false");
+      if ($("cfg-vad_filter").checked) fd.append("vad_filter", "true");
+      const prompt = $("cfg-initial_prompt").value.trim();
+      if (prompt) fd.append("initial_prompt", prompt);
+
+      try {
+        const res = await fetch("/api/jobs", { method: "POST", body: fd });
+        const payload = await res.json();
+        if (!res.ok) throw new Error(payload.error || "No se pudo crear la tarea.");
+        state.jobId = payload.id;
+        state.uploadName = payload.upload_name;
+        poll();
+      } catch (err) {
+        setStatus(err.message, "error");
+        setDock("error", "Error");
+        showError(err.message);
+        btn.disabled = false;
+      }
+    });
+
+    let pollTimer = null;
+    async function poll() {
+      clearTimeout(pollTimer);
+      try {
+        const res = await fetch("/api/jobs/" + state.jobId);
+        const job = await res.json();
+        const logLines = job.log || [];
+        const last = (logLines.slice(-1)[0] || "").trim();
+        if (job.status === "running") {
+          setStatus("Transcribiendo… " + last.slice(0, 90));
+        } else if (job.status === "queued") {
+          setStatus("En cola…");
+        } else if (job.status === "done") {
+          state.outputs = job.outputs || [];
+          setDock("ready", "Listo");
+          if ($("cfg-srt-only").checked) {
+            const srtName = state.outputs.find((name) => name.toLowerCase().endsWith(".srt"));
+            if (!srtName) {
+              showError("No se generó el archivo SRT.");
+              $("transcribe-btn").disabled = false;
+              return;
+            }
+            const fileResponse = await fetch("/outputs/" + encodeURIComponent(srtName));
+            if (!fileResponse.ok) throw new Error("No se pudo descargar el SRT.");
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(await fileResponse.blob());
+            link.download = srtName;
+            link.click();
+            setTimeout(() => URL.revokeObjectURL(link.href), 2000);
+            await fetch("/api/cleanup", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ job_id: job.id }),
+            });
+            setStatus("SRT descargado.");
+            $("config-progress-fill").classList.remove("is-indeterminate");
+            $("transcribe-btn").disabled = false;
+            return;
+          }
+          await openEditor(job);
+          return;
+        } else if (job.status === "error") {
+          setStatus("Error", "error");
+          setDock("error", "Error");
+          showLog(logLines);
+          showError("La transcripción falló. Revisa el registro.");
+          $("transcribe-btn").disabled = false;
+          return;
+        }
+        showLog(logLines);
+        pollTimer = setTimeout(poll, 1200);
+      } catch (err) {
+        setStatus("Error de red", "error");
+        $("transcribe-btn").disabled = false;
+      }
+    }
+
+    function pickEditorFile(outputs) {
+      const lower = outputs.map((n) => ({ n, l: n.toLowerCase() }));
+      return (lower.find((x) => x.l.endsWith(".srt")) ||
+              lower.find((x) => x.l.endsWith(".vtt")) ||
+              lower.find((x) => x.l.endsWith(".txt")) ||
+              lower[0] || {}).n;
+    }
+
+    async function openEditor(job) {
+      state.uploadName = job.upload_name || state.uploadName;
+      const name = pickEditorFile(state.outputs);
+      if (!name) {
+        showError("No se generó ningún subtítulo.");
+        $("transcribe-btn").disabled = false;
+        return;
+      }
+      state.originalName = name;
+      let content = "";
+      try {
+        const res = await fetch("/api/outputs/" + encodeURIComponent(name));
+        const payload = await res.json();
+        content = payload.content || "";
+      } catch (err) {
+        showError("No se pudieron leer los subtítulos generados.");
+        $("transcribe-btn").disabled = false;
+        return;
+      }
+
+      const lower = name.toLowerCase();
+      if (lower.endsWith(".vtt")) state.segments = parseVtt(content);
+      else if (lower.endsWith(".srt")) state.segments = parseSrt(content);
+      else state.segments = [];
+
+      if (!state.segments.length) {
+        state.segments = [{ start: 0, end: 1, text: content.trim() }];
+      }
+
+      $("video").src = "/uploads/" + encodeURIComponent(state.uploadName);
+      $("video-meta").textContent = state.file ? state.file.name : "";
+      fillOrigSelect();
+      $("cs-font").value = $("cfg-font").value;
+      applyFont($("cfg-font").value);
+      $("cs-size").value = $("cfg-size").value;
+      $("cs-spacing").value = parseInt($("cfg-word_spacing").value, 10) || 1;
+      $("cs-outline").value = parseInt($("cfg-outline").value, 10) || 0;
+      $("cs-background").checked = $("cfg-background").value === "1";
+      $("transcribe-btn").disabled = false;
+      showStage("editor");
+      applySize($("cfg-size").value);
+      applyOutline($("cs-outline").value);
+      applyBackground($("cs-background").checked);
+      renderSegments();
+    }
+
+    function fillOrigSelect() {
+      const sel = $("orig-select");
+      sel.innerHTML = "";
+      for (const name of state.outputs || []) {
+        const opt = document.createElement("option");
+        opt.value = name;
+        opt.textContent = name;
+        if (name === state.originalName) opt.selected = true;
+        sel.appendChild(opt);
+      }
+    }
+
+    // ── Editor: segments ──
+    const segList = $("seg-list");
+    function renderSegments() {
+      segList.innerHTML = "";
+      if (!state.segments.length) {
+        segList.innerHTML = '<li class="seg-empty">Sin subtítulos</li>';
+      }
+      state.segments.forEach((seg, i) => {
+        const li = document.createElement("li");
+        li.className = "seg" + (i === state.current ? " is-active" : "");
+        li.dataset.index = i;
+        li.innerHTML =
+          '<div class="seg-row">' +
+            '<button class="seg-play" data-act="play" title="Reproducir">▶</button>' +
+            '<input class="t-input" data-act="start" value="' + fmt(seg.start) + '" spellcheck="false" title="Inicio">' +
+            '<span class="t-sep">→</span>' +
+            '<input class="t-input" data-act="end" value="' + fmt(seg.end) + '" spellcheck="false" title="Fin">' +
+            '<button class="seg-del" data-act="del" title="Eliminar">✕</button>' +
+          '</div>' +
+          '<textarea class="seg-text" data-act="text" rows="2">' + esc(seg.text) + '</textarea>';
+        segList.appendChild(li);
+      });
+      $("seg-count").textContent = state.segments.length + " subtítulos";
+      renderTimeline();
+    }
+
+    segList.addEventListener("click", (e) => {
+      const segEl = e.target.closest(".seg");
+      if (!segEl) return;
+      const i = +segEl.dataset.index;
+      const act = e.target.dataset.act;
+      if (act === "play") { playSegment(i); return; }
+      if (act === "del") { deleteSegment(i); return; }
+      activate(i, true);
+    });
+    segList.addEventListener("input", (e) => {
+      if (e.target.dataset.act !== "text") return;
+      const segEl = e.target.closest(".seg");
+      if (!segEl) return;
+      const i = +segEl.dataset.index;
+      state.segments[i].text = e.target.value;
+      if (i === state.current) renderCaption();
+    });
+    segList.addEventListener("change", (e) => {
+      const act = e.target.dataset.act;
+      if (act !== "start" && act !== "end") return;
+      const segEl = e.target.closest(".seg");
+      if (!segEl) return;
+      const i = +segEl.dataset.index;
+      const t = parseTime(e.target.value);
+      if (t == null) {
+        e.target.value = fmt(act === "start" ? state.segments[i].start : state.segments[i].end);
+        return;
+      }
+      if (act === "start") state.segments[i].start = Math.min(t, state.segments[i].end - 0.05);
+      else state.segments[i].end = Math.max(t, state.segments[i].start + 0.05);
+      e.target.value = fmt(act === "start" ? state.segments[i].start : state.segments[i].end);
+      renderTimeline();
+    });
+
+    function activate(i, seek) {
+      state.current = i;
+      document.querySelectorAll(".seg").forEach((el, idx) => el.classList.toggle("is-active", idx === i));
+      document.querySelectorAll(".tl-block").forEach((el, idx) => el.classList.toggle("is-active", idx === i));
+      if (seek && state.segments[i]) seekTo(state.segments[i].start);
+      renderCaption();
+    }
+    function playSegment(i) {
+      if (state.segments[i]) seekTo(state.segments[i].start);
+      video.play();
+    }
+    function deleteSegment(i) {
+      state.segments.splice(i, 1);
+      if (i < state.current) state.current--;
+      else if (i === state.current) state.current = -1;
+      if (state.current >= state.segments.length) state.current = state.segments.length - 1;
+      renderSegments();
+    }
+    function scrollSegmentIntoView(i) {
+      const el = segList.querySelector('.seg[data-index="' + i + '"]');
+      if (el) el.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    }
+
+    $("add-seg-btn").addEventListener("click", () => {
+      const last = state.segments[state.segments.length - 1];
+      const start = last ? last.end : 0;
+      state.segments.push({ start, end: start + 2, text: "" });
+      renderSegments();
+      activate(state.segments.length - 1, false);
+      const ta = segList.querySelector(".seg:last-child .seg-text");
+      if (ta) ta.focus();
+    });
+
+    // ── Video ──
+    const video = $("video");
+    video.addEventListener("loadedmetadata", () => {
+      state.duration = video.duration || state.segments[state.segments.length - 1].end || 1;
+      renderTimeline();
+    });
+    video.addEventListener("timeupdate", () => updatePlayback(video.currentTime));
+    video.addEventListener("play", () => { $("timeline").classList.add("is-playing"); });
+    video.addEventListener("pause", () => { $("timeline").classList.remove("is-playing"); });
+
+    function findSegment(t) {
+      for (let i = 0; i < state.segments.length; i++) {
+        if (t >= state.segments[i].start - 0.001 && t < state.segments[i].end) return i;
+      }
+      return -1;
+    }
+    function updatePlayback(t) {
+      const i = findSegment(t);
+      if (i !== state.current) {
+        state.current = i;
+        document.querySelectorAll(".seg").forEach((el, idx) => el.classList.toggle("is-active", idx === i));
+        document.querySelectorAll(".tl-block").forEach((el, idx) => el.classList.toggle("is-active", idx === i));
+        if (i >= 0) scrollSegmentIntoView(i);
+      }
+      renderCaption();
+      updatePlayhead(t);
+      updateClock(t);
+    }
+    function captionParts(seg, t) {
+      const parts = String(seg.text || "").split(/(\s+)/);
+      const tokens = parts.map((p) => (/^\s+$/.test(p) ? { ws: p } : { word: p }));
+      const words = tokens.filter((tk) => tk.word);
+      const total = words.reduce((a, tk) => a + tk.word.length, 0) || 1;
+      const dur = Math.max(0.001, seg.end - seg.start);
+      const p = Math.min(1, Math.max(0, (t - seg.start) / dur));
+      let acc = 0;
+      const bounds = words.map((tk) => { acc += tk.word.length / total; return acc; });
+      let active = 0;
+      while (active < bounds.length - 1 && p >= bounds[active]) active++;
+      return { tokens, active };
+    }
+    function renderCaption() {
+      const box = $("caption-box");
+      const seg = state.current >= 0 ? state.segments[state.current] : null;
+      if (!seg) {
+        box.hidden = true;
+        box.innerHTML = "";
+        return;
+      }
+      box.hidden = false;
+      if ($("cs-word-highlight").checked) {
+        const { tokens, active } = captionParts(seg, video.currentTime);
+        let wi = 0;
+        box.innerHTML = tokens
+          .map((tk) => {
+            if (tk.ws) return tk.ws;
+            const cls = "cw" + (wi === active ? " is-spoken" : "");
+            wi++;
+            return '<span class="' + cls + '">' + esc(tk.word) + "</span>";
+          })
+          .join("");
+      } else {
+        box.textContent = seg.text;
+      }
+    }
+    function seekTo(t) {
+      try { video.currentTime = Math.max(0, t); } catch (err) {}
+      updatePlayback(t);
+    }
+    function updateClock(t) {
+      $("tl-clock").textContent = fmtClock(t) + " / " + fmtClock(state.duration || 0);
+    }
+
+    // ── Caption style ──
+    const captionBox = $("caption-box");
+    const FONTS = {
+      sans: '"Outfit","Inter",system-ui,sans-serif',
+      serif: '"Instrument Serif",Georgia,serif',
+      rounded: '"Quicksand","Nunito",sans-serif',
+      condensed: '"Oswald","Arial Narrow",sans-serif',
+      mono: 'ui-monospace,SFMono-Regular,Menlo,Consolas,monospace',
+      payday: '"Payday","Outfit",sans-serif',
+    };
+    function applyFont(key) {
+      captionBox.style.fontFamily = FONTS[key] || FONTS.sans;
+    }
+    $("cs-font").addEventListener("change", (e) => {
+      applyFont(e.target.value);
+    });
+    const SIZE_RATIO = 11 / 288; // matches ASS FontSize=11 at PlayResY=288 in subtitle_ui.py
+    function displayedVideoHeight() {
+      const box = $("video-preview");
+      const video = $("video");
+      const boxW = box.clientWidth;
+      const boxH = box.clientHeight;
+      if (!boxW || !boxH) return 400;
+      const vw = video.videoWidth || 16;
+      const vh = video.videoHeight || 9;
+      const scale = Math.min(boxW / vw, boxH / vh);
+      return Math.max(120, vh * scale);
+    }
+    function applySize(value) {
+      const v = Math.min(2.0, Math.max(0.7, +value || 1));
+      captionBox.style.fontSize = Math.round(displayedVideoHeight() * SIZE_RATIO * v) + "px";
+      $("cs-size").value = v;
+    }
+    $("cs-size").addEventListener("input", (e) => {
+      applySize(e.target.value);
+    });
+    window.addEventListener("resize", () => {
+      applySize($("cs-size").value);
+      applyOutline($("cs-outline").value);
+      if (state.customPos) applyCaptionPosition("libre");
+    });
+    $("video").addEventListener("loadedmetadata", () => {
+      applySize($("cs-size").value);
+      applyOutline($("cs-outline").value);
+      if (state.customPos) applyCaptionPosition("libre");
+    });
+    $("cs-color").addEventListener("input", (e) => {
+      captionBox.style.color = e.target.value;
+    });
+
+    let wordRaf = null;
+    function startWordLoop() {
+      stopWordLoop();
+      const step = () => { renderCaption(); wordRaf = requestAnimationFrame(step); };
+      wordRaf = requestAnimationFrame(step);
+    }
+    function stopWordLoop() {
+      if (wordRaf) { cancelAnimationFrame(wordRaf); wordRaf = null; }
+    }
+    $("cs-word-highlight").addEventListener("change", (e) => {
+      if (e.target.checked && !video.paused) startWordLoop();
+      else { stopWordLoop(); renderCaption(); }
+    });
+    video.addEventListener("play", () => { if ($("cs-word-highlight").checked) startWordLoop(); });
+    video.addEventListener("pause", () => { stopWordLoop(); renderCaption(); });
+
+    $("cs-spacing").addEventListener("change", (e) => {
+      setWordSpacing(e.target.value);
+    });
+    $("cs-outline").addEventListener("input", (e) => {
+      applyOutline(e.target.value);
+    });
+    $("cs-background").addEventListener("change", (e) => {
+      applyBackground(e.target.checked);
+    });
+
+    function setWordSpacing(value) {
+      const n = Math.max(1, Math.min(12, Math.round(+value || 1)));
+      const sep = " ".repeat(n);
+      state.segments.forEach((seg) => {
+        seg.text = seg.text
+          .split("\n")
+          .map((line) =>
+            n <= 1
+              ? line.replace(/(\S) +(?=\S)/g, "$1 ")
+              : line.replace(/(\S) +(?=\S)/g, "$1" + sep)
+          )
+          .join("\n");
+      });
+      $("cs-spacing").value = n;
+      renderSegments();
+      renderCaption();
+    }
+    function applyOutline(width) {
+      const w = Math.max(0, Math.min(40, +width || 0));
+      // The export maps trazo px@1080p to ASS Outline units (PlayResY=288) and
+      // libass renders ~2.75px of visible stroke per unit. -webkit-text-stroke
+      // is centered (half outside), so multiply by 2*2.75/1080 = 5.5/1080.
+      const outlineUnits = Math.round(w * 288 / 1080);
+      const px = Math.max(0, Math.round(displayedVideoHeight() * 5.5 * outlineUnits / 1080));
+      captionBox.style.webkitTextStroke = px > 0 ? px + "px #000" : "";
+      // Paint the fill above the stroke so the letter stays visible, matching
+      // the layered export (stroke behind, fill on top).
+      captionBox.style.paintOrder = px > 0 ? "stroke fill" : "";
+      captionBox.style.textShadow = "";
+    }
+    function applyBackground(on) {
+      captionBox.style.background = on ? "rgba(6, 8, 11, 0.84)" : "transparent";
+    }
+
+    function videoContentRect() {
+      const preview = $("video-preview");
+      const v = $("video");
+      const pw = preview.clientWidth, ph = preview.clientHeight;
+      if (!pw || !ph) return { left: 0, top: 0, width: pw || 1, height: ph || 1 };
+      const vw = v.videoWidth || 16, vh = v.videoHeight || 9;
+      const sc = Math.min(pw / vw, ph / vh);
+      const w = vw * sc, h = vh * sc;
+      return { left: (pw - w) / 2, top: (ph - h) / 2, width: w, height: h };
+    }
+    function applyCaptionPosition(pos) {
+      captionBox.classList.toggle("is-free", pos === "libre");
+      if (pos === "libre") {
+        const rect = videoContentRect();
+        const p = state.customPos || { x: 50, y: 92 };
+        captionBox.style.left = rect.left + (rect.width * p.x / 100) + "px";
+        captionBox.style.top = rect.top + (rect.height * p.y / 100) + "px";
+        captionBox.style.bottom = "auto";
+        captionBox.style.transform = "none";
+        return;
+      }
+      captionBox.style.left = "50%";
+      captionBox.style.top = "auto";
+      captionBox.style.bottom = "auto";
+      if (pos === "top") { captionBox.style.top = "8%"; captionBox.style.transform = "translateX(-50%)"; }
+      else if (pos === "middle") { captionBox.style.top = "50%"; captionBox.style.transform = "translate(-50%, -50%)"; }
+      else { captionBox.style.bottom = "8%"; captionBox.style.transform = "translateX(-50%)"; }
+    }
+    function selectPosMode(mode) {
+      document.querySelectorAll("#cs-position button").forEach((b) =>
+        b.classList.toggle("is-on", b.dataset.pos === mode)
+      );
+      if (mode === "libre") {
+        if (!state.customPos) state.customPos = { x: 50, y: 92 };
+        applyCaptionPosition("libre");
+      } else {
+        state.customPos = null;
+        applyCaptionPosition(mode);
+      }
+    }
+    $("cs-position").addEventListener("click", (e) => {
+      const btn = e.target.closest("button[data-pos]");
+      if (!btn) return;
+      selectPosMode(btn.dataset.pos);
+    });
+
+    // ── Drag caption to a custom position ──
+    function dragTo(clientX, clientY) {
+      const rect = videoContentRect();
+      let x = (clientX - rect.left) / rect.width * 100;
+      let y = (clientY - rect.top) / rect.height * 100;
+      x = Math.max(0, Math.min(100, x));
+      y = Math.max(0, Math.min(100, y));
+      state.customPos = { x, y };
+      applyCaptionPosition("libre");
+    }
+    captionBox.addEventListener("pointerdown", (e) => {
+      if (e.button !== 0) return;
+      e.preventDefault();
+      captionBox.setPointerCapture(e.pointerId);
+      captionBox.classList.add("is-dragging");
+      selectPosMode("libre");
+      dragTo(e.clientX, e.clientY);
+    });
+    captionBox.addEventListener("pointermove", (e) => {
+      if (!captionBox.classList.contains("is-dragging")) return;
+      dragTo(e.clientX, e.clientY);
+    });
+    const endCaptionDrag = () => captionBox.classList.remove("is-dragging");
+    captionBox.addEventListener("pointerup", endCaptionDrag);
+    captionBox.addEventListener("pointercancel", endCaptionDrag);
+
+    applyCaptionPosition("bottom");
+    applyOutline($("cs-outline").value);
+    applyBackground($("cs-background").checked);
+
+    // ── Timeline ──
+    const basePx = 100;
+    const scale = () => basePx * state.zoom;
+    function niceStep(dur, sc) {
+      const target = 90 / sc;
+      const steps = [0.5, 1, 2, 5, 10, 15, 30, 60, 120, 300, 600];
+      for (const s of steps) if (s >= target) return s;
+      return 1200;
+    }
+    function renderTimeline() {
+      const dur = Math.max(state.duration, ...state.segments.map((s) => s.end), 1);
+      const sc = scale();
+      const width = dur * sc + 80;
+      const track = $("timeline-track");
+      const ruler = $("timeline-ruler");
+      const blocks = $("timeline-blocks");
+      track.style.width = width + "px";
+      ruler.style.width = width + "px";
+      blocks.style.width = width + "px";
+
+      const step = niceStep(dur, sc);
+      let html = "";
+      for (let t = 0; t <= dur; t += step) {
+        html += '<span class="tl-tick" style="left:' + (t * sc) + 'px"><i></i><b>' + fmtClock(t) + "</b></span>";
+      }
+      ruler.innerHTML = html;
+
+      html = "";
+      state.segments.forEach((seg, i) => {
+        const left = seg.start * sc;
+        const w = Math.max((seg.end - seg.start) * sc, 4);
+        html += '<div class="tl-block' + (i === state.current ? " is-active" : "") + '" data-index="' + i +
+          '" style="left:' + left + "px;width:" + w + 'px"><span class="tl-block-label">' + esc(seg.text) + "</span></div>";
+      });
+      blocks.innerHTML = html;
+      updatePlayhead(video.currentTime || 0);
+    }
+    function updatePlayhead(t) {
+      const x = t * scale();
+      $("timeline-playhead").style.left = x + "px";
+      const scroll = $("timeline-scroll");
+      if (x < scroll.scrollLeft || x > scroll.scrollLeft + scroll.clientWidth - 20) {
+        scroll.scrollLeft = Math.max(0, x - scroll.clientWidth / 2);
+      }
+    }
+
+    const rulerEl = $("timeline-ruler");
+    let scrubbing = false;
+    function scrub(e) {
+      const rect = rulerEl.getBoundingClientRect();
+      const t = Math.max(0, (e.clientX - rect.left) / scale());
+      seekTo(Math.min(t, state.duration || t));
+    }
+    rulerEl.addEventListener("pointerdown", (e) => {
+      scrubbing = true;
+      $("timeline").classList.add("is-scrubbing");
+      scrub(e);
+      rulerEl.setPointerCapture(e.pointerId);
+    });
+    rulerEl.addEventListener("pointermove", (e) => { if (scrubbing) scrub(e); });
+    rulerEl.addEventListener("pointerup", () => { scrubbing = false; $("timeline").classList.remove("is-scrubbing"); });
+
+    $("timeline-blocks").addEventListener("click", (e) => {
+      const blk = e.target.closest(".tl-block");
+      if (!blk) return;
+      activate(+blk.dataset.index, true);
+    });
+
+    $("tl-play").addEventListener("click", () => { if (video.paused) video.play(); else video.pause(); });
+    $("vp-volume").addEventListener("input", (e) => {
+      video.volume = +e.target.value;
+      video.muted = +e.target.value === 0;
+      $("timeline").classList.toggle("is-muted", video.muted);
+    });
+    $("vp-mute").addEventListener("click", () => {
+      video.muted = !video.muted;
+      $("timeline").classList.toggle("is-muted", video.muted);
+    });
+    $("vp-fullscreen").addEventListener("click", () => {
+      const p = $("video-preview");
+      if (document.fullscreenElement) document.exitFullscreen(); else p.requestFullscreen();
+    });
+    document.addEventListener("fullscreenchange", () => {
+      $("timeline").classList.toggle("is-fullscreen", !!document.fullscreenElement);
+    });
+    $("tl-zoom-in").addEventListener("click", () => { state.zoom = Math.min(6, state.zoom * 1.25); renderTimeline(); });
+    $("tl-zoom-out").addEventListener("click", () => { state.zoom = Math.max(0.4, state.zoom / 1.25); renderTimeline(); });
+
+    // ── Export ──
+    const exportBase = () => stem(state.file ? state.file.name : (state.originalName || "subtitulos"));
+    $("download-srt-btn").addEventListener("click", () => downloadText(exportBase() + ".srt", toSrt(state.segments)));
+    $("download-vtt-btn").addEventListener("click", () => downloadText(exportBase() + ".vtt", toVtt(state.segments)));
+    $("download-txt-btn").addEventListener("click", () => downloadText(exportBase() + ".txt", toTxt(state.segments)));
+    $("download-orig-btn").addEventListener("click", () => {
+      const n = $("orig-select").value;
+      if (n) window.location.href = "/outputs/" + encodeURIComponent(n);
+    });
+
+    // ── Video export (subtítulos incrustados) ──
+    const evModal = $("export-video-modal");
+    let evTimer = null;
+    $("export-video-btn").addEventListener("click", async () => {
+      if (!state.uploadName || !state.segments.length) return;
+      const style = {
+        font: $("cs-font").value,
+        font_size: $("cs-size").value,
+        color: $("cs-color").value,
+        position: state.customPos
+          ? "custom"
+          : ((document.querySelector("#cs-position button.is-on") || {}).dataset
+            ? (document.querySelector("#cs-position button.is-on").dataset.pos || "bottom")
+            : "bottom"),
+        pos_x: state.customPos ? state.customPos.x : undefined,
+        pos_y: state.customPos ? state.customPos.y : undefined,
+        outline: parseInt($("cs-outline").value, 10) || 0,
+        background: $("cs-background").checked,
+        word_highlight: $("cs-word-highlight").checked,
+      };
+      $("export-video-btn").disabled = true;
+      showEvModal(true);
+      setEvStatus("Enviando subtítulos…");
+      $("ev-log").hidden = true;
+      try {
+        const res = await fetch("/api/export", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ upload_name: state.uploadName, srt: toSrt(state.segments), style }),
+        });
+        const payload = await res.json();
+        if (!res.ok) throw new Error(payload.error || "No se pudo exportar el video.");
+        pollExport(payload.id);
+      } catch (err) {
+        setEvStatus(err.message, "error");
+        $("export-video-btn").disabled = false;
+      }
+    });
+
+    function showEvModal(show) { evModal.hidden = !show; }
+    function setEvStatus(text, kind) {
+      const el = $("ev-status");
+      el.textContent = text;
+      el.dataset.kind = kind || "";
+    }
+    function showEvLog(lines) {
+      const el = $("ev-log");
+      if (lines && lines.length) {
+        el.hidden = false;
+        el.textContent = lines.slice(-20).join("\n");
+      }
+    }
+    async function pollExport(id) {
+      clearTimeout(evTimer);
+      try {
+        const res = await fetch("/api/jobs/" + id);
+        const job = await res.json();
+        const logLines = job.log || [];
+        const last = (logLines.slice(-1)[0] || "").trim();
+        if (job.status === "running" || job.status === "queued") {
+          setEvStatus("Exportando video… " + last.slice(0, 80));
+          showEvLog(logLines);
+        } else if (job.status === "done") {
+          const name = (job.outputs || [])[0];
+          setEvStatus("¡Listo! Descargando…", "ok");
+          if (name) window.location.href = "/exports/" + encodeURIComponent(name);
+          setTimeout(() => { showEvModal(false); $("export-video-btn").disabled = false; }, 900);
+          return;
+        } else if (job.status === "error") {
+          setEvStatus("Error al exportar", "error");
+          showEvLog(logLines);
+          $("export-video-btn").disabled = false;
+          return;
+        }
+        evTimer = setTimeout(() => pollExport(id), 1200);
+      } catch (err) {
+        setEvStatus("Error de red", "error");
+        $("export-video-btn").disabled = false;
+      }
+    }
+    $("ev-close").addEventListener("click", () => {
+      clearTimeout(evTimer);
+      showEvModal(false);
+      $("export-video-btn").disabled = false;
+    });
+
+    // ── SEO & Capítulos YouTube ──
+    const seoModal = $("seo-modal");
+    let seoText = "";
+    const showSeoModal = (show) => { seoModal.hidden = !show; };
+    const setSeoStatus = (text, kind) => {
+      const el = $("seo-status");
+      el.textContent = text;
+      el.dataset.kind = kind || "";
+    };
+    $("seo-btn").addEventListener("click", async () => {
+      if (!state.segments || !state.segments.length) {
+        alert("No hay subtítulos para generar la descripción.");
+        return;
+      }
+      const btn = $("seo-btn");
+      btn.disabled = true;
+      $("seo-result").textContent = "";
+      showSeoModal(true);
+      setSeoStatus("Generando descripción…");
+      try {
+        const srt = toSrt(state.segments);
+        const res = await fetch("/api/generate-seo", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ srt }),
+        });
+        const payload = await res.json();
+        if (!res.ok) throw new Error(payload.error || "No se pudo generar la descripción.");
+        seoText = payload.result || "";
+        $("seo-result").textContent = seoText;
+        setSeoStatus("¡Listo!", "ok");
+      } catch (err) {
+        setSeoStatus(err.message, "error");
+        $("seo-result").textContent = err.message;
+      } finally {
+        btn.disabled = false;
+      }
+    });
+    $("seo-close").addEventListener("click", () => showSeoModal(false));
+    $("seo-copy").addEventListener("click", async () => {
+      if (!seoText) return;
+      try {
+        await navigator.clipboard.writeText(seoText);
+        $("seo-copy").textContent = "¡Copiado!";
+        setTimeout(() => { $("seo-copy").textContent = "Copiar descripción"; }, 1600);
+      } catch (err) {
+        const ta = document.createElement("textarea");
+        ta.value = seoText;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand("copy");
+        document.body.removeChild(ta);
+      }
+    });
+    $("seo-download").addEventListener("click", () => {
+      if (!seoText) return;
+      downloadText(exportBase() + "-seo.txt", seoText);
+    });
+
+    // ── Back to config ──
+    $("back-btn").addEventListener("click", () => {
+      video.pause();
+      showStage("config");
+    });
+
+    showStage("upload");
+  </script>
+</body>
+</html>

@@ -85,13 +85,21 @@ La instalación de dependencias puede tardar y ocupar varios gigabytes, especial
 
 Con el entorno virtual activado, desde la carpeta del proyecto ejecuta:
 
-```bash
+En Windows (PowerShell):
+
+```powershell
 python tools/subtitle_ui.py
+```
+
+En Linux:
+
+```bash
+python3 tools/subtitle_ui.py
 ```
 
 Abre [http://127.0.0.1:8765](http://127.0.0.1:8765) en el navegador. Para cerrar el servidor, vuelve a la terminal y presiona `Ctrl+C`.
 
-En Linux también puedes usar `make subtitulos` si tienes `make` instalado y activaste el entorno virtual.
+En Linux puedes ejecutar `make subtitulos` si tienes `make` instalado. El comando usa `.venv` o, si existe, `.venv-linux`.
 
 ## 5. Uso y archivos generados
 

@@ -11,8 +11,10 @@ Sigue la [guía de instalación para Windows y Linux](INSTALACION.md). Allí enc
 Con el entorno virtual activado y las dependencias instaladas, ejecuta desde la carpeta del proyecto:
 
 ```bash
-python tools/subtitle_ui.py
+python3 tools/subtitle_ui.py
 ```
+
+En Windows, usa `python tools/subtitle_ui.py`.
 
 Abre [http://127.0.0.1:8765](http://127.0.0.1:8765) en tu navegador. La primera transcripción puede tardar mientras se descarga el modelo seleccionado.
 

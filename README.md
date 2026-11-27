@@ -295,5 +295,11 @@ If you are comparing the performance against other Whisper implementations, you 
 ```bash
 OMP_NUM_THREADS=4 python3 my_script.py
 ```
-#   f a s t e r - w h i s p e r - s r t  
+#   f a s t e r - w h i s p e r - s r t 
  
+ 
+
+#source .venv-linux/bin/activate
+#python tools/subtitle_ui.py
+
+
